@@ -77,7 +77,7 @@ export default function HomeScreen() {
 
         {/* Simulation Card */}
         <View style={[styles.simulationCard, { backgroundColor: colors.primary }]}>
-          <Text style={styles.cardTitle}>🚗 Simulado DETRAN</Text>
+          <Text style={styles.cardTitle}>🚗 Educador Excepcional</Text>
           <Text style={styles.cardDescription}>
             30 questões em 40 minutos{"\n"}
             Aprovação: 70% (21 acertos)

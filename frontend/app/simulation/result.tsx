@@ -103,7 +103,7 @@ export default function SimulationResultScreen() {
 
   const handleShare = async () => {
     if (!result) return;
-    const message = `🚗 Simulado DETRAN\n\n${result.passed ? '✅ APROVADO!' : '❌ Reprovado'}\n📊 Nota: ${result.score.toFixed(0)}%\n✏️ Acertos: ${result.correct_answers}/${result.total_questions}\n⏱ Tempo: ${formatTime(result.time_taken_seconds)}\n\nEstude com o Detran Quiz!`;
+    const message = `🚗 Educador Excepcional\n\n${result.passed ? '✅ APROVADO!' : '❌ Reprovado'}\n📊 Nota: ${result.score.toFixed(0)}%\n✏️ Acertos: ${result.correct_answers}/${result.total_questions}\n⏱ Tempo: ${formatTime(result.time_taken_seconds)}\n\nEstude com o Educador Excepcional!`;
     try {
       await Share.share({ message });
     } catch (e) {

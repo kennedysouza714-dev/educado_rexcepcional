@@ -75,7 +75,7 @@ export default function SimulationStartScreen() {
 
         <View style={styles.info}>
           <Text style={styles.emoji}>🚗</Text>
-          <Text style={[styles.title, { color: colors.text }]}>Simulado DETRAN</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Educador Excepcional</Text>
         </View>
 
         {/* Mode Toggle */}

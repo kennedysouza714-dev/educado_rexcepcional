@@ -28,7 +28,7 @@ export default function WelcomeScreen() {
           <View style={styles.logoContainer}>
             <Text style={styles.logoEmoji}>🚗</Text>
           </View>
-          <Text style={styles.title}>Detran Quiz</Text>
+          <Text style={styles.title}>Educador Excepcional</Text>
           <Text style={styles.subtitle}>Teste de Habilitação</Text>
         </View>
 
