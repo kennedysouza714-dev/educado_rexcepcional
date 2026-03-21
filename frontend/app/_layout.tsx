@@ -38,6 +38,7 @@ export default function RootLayout() {
       <Stack.Screen name="simulation/question" />
       <Stack.Screen name="simulation/result" />
       <Stack.Screen name="study/[modulo]" />
+      <Stack.Screen name="review/index" />
     </Stack>
   );
 }

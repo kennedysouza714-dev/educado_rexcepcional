@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { Button } from '../../src/components/Button';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { simulationAPI } from '../../src/services/api';
@@ -34,6 +34,7 @@ interface SimulationResult {
 
 export default function SimulationResultScreen() {
   const router = useRouter();
+  const colors = useColors();
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(false);
@@ -46,20 +47,15 @@ export default function SimulationResultScreen() {
     try {
       const answersJson = await AsyncStorage.getItem('simulation_answers');
       const timeTakenStr = await AsyncStorage.getItem('simulation_time_taken');
-      
       if (!answersJson) {
         Alert.alert('Erro', 'Dados do simulado não encontrados');
         router.replace('/(tabs)/home');
         return;
       }
-      
       const answers = JSON.parse(answersJson);
       const timeTaken = parseInt(timeTakenStr || '0', 10);
-      
       const response = await simulationAPI.submit(answers, timeTaken);
       setResult(response);
-      
-      // Clear simulation data
       await AsyncStorage.multiRemove([
         'simulation_questions',
         'simulation_answers',
@@ -84,21 +80,19 @@ export default function SimulationResultScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Calculando resultado...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Calculando resultado...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (!result) {
-    return null;
-  }
+  if (!result) return null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         {!showReview ? (
           <>
@@ -112,42 +106,40 @@ export default function SimulationResultScreen() {
               ]}>
                 {result.passed ? 'Aprovado!' : 'Reprovado'}
               </Text>
-              <Text style={styles.resultSubtitle}>
+              <Text style={[styles.resultSubtitle, { color: colors.textSecondary }]}>
                 {result.passed 
                   ? 'Parabéns! Você passou no simulado!'
                   : 'Não desista! Continue estudando!'}
               </Text>
             </View>
 
-            <View style={styles.statsCard}>
-              <View style={styles.scoreContainer}>
+            <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.scoreContainer, { borderBottomColor: colors.gray200 }]}>
                 <Text style={[
                   styles.scoreValue,
                   { color: result.passed ? colors.success : colors.error }
                 ]}>
                   {result.score.toFixed(0)}%
                 </Text>
-                <Text style={styles.scoreLabel}>Pontuação</Text>
+                <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>Pontuação</Text>
               </View>
 
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {result.correct_answers}/{result.total_questions}
                   </Text>
-                  <Text style={styles.statLabel}>Acertos</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Acertos</Text>
                 </View>
-                
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {formatTime(result.time_taken_seconds)}
                   </Text>
-                  <Text style={styles.statLabel}>Tempo</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Tempo</Text>
                 </View>
-                
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>70%</Text>
-                  <Text style={styles.statLabel}>Mínimo</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>70%</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Mínimo</Text>
                 </View>
               </View>
             </View>
@@ -178,7 +170,7 @@ export default function SimulationResultScreen() {
         ) : (
           <>
             <View style={styles.reviewHeader}>
-              <Text style={styles.reviewTitle}>Revisão das Questões</Text>
+              <Text style={[styles.reviewTitle, { color: colors.text }]}>Revisão das Questões</Text>
               <Button
                 title="Voltar"
                 onPress={() => setShowReview(false)}
@@ -192,11 +184,14 @@ export default function SimulationResultScreen() {
                 key={answer.question_id} 
                 style={[
                   styles.reviewCard,
-                  answer.is_correct ? styles.reviewCorrect : styles.reviewIncorrect
+                  { backgroundColor: colors.card },
+                  answer.is_correct 
+                    ? { borderLeftColor: colors.success }
+                    : { borderLeftColor: colors.error }
                 ]}
               >
                 <View style={styles.reviewCardHeader}>
-                  <Text style={styles.reviewIndex}>Questão {index + 1}</Text>
+                  <Text style={[styles.reviewIndex, { color: colors.textSecondary }]}>Questão {index + 1}</Text>
                   <Text style={[
                     styles.reviewStatus,
                     { color: answer.is_correct ? colors.success : colors.error }
@@ -205,17 +200,17 @@ export default function SimulationResultScreen() {
                   </Text>
                 </View>
                 
-                <Text style={styles.reviewQuestion}>{answer.questao}</Text>
+                <Text style={[styles.reviewQuestion, { color: colors.text }]}>{answer.questao}</Text>
                 
                 <View style={styles.reviewAnswers}>
-                  <Text style={styles.reviewAnswerLabel}>
+                  <Text style={[styles.reviewAnswerLabel, { color: colors.textSecondary }]}>
                     Sua resposta: <Text style={[
                       styles.reviewAnswerValue,
                       { color: answer.is_correct ? colors.success : colors.error }
                     ]}>{answer.selected_option}</Text>
                   </Text>
                   {!answer.is_correct && (
-                    <Text style={styles.reviewAnswerLabel}>
+                    <Text style={[styles.reviewAnswerLabel, { color: colors.textSecondary }]}>
                       Resposta correta: <Text style={[
                         styles.reviewAnswerValue,
                         { color: colors.success }
@@ -224,9 +219,9 @@ export default function SimulationResultScreen() {
                   )}
                 </View>
                 
-                <View style={styles.reviewComment}>
-                  <Text style={styles.reviewCommentLabel}>Comentário:</Text>
-                  <Text style={styles.reviewCommentText}>{answer.comentario}</Text>
+                <View style={[styles.reviewComment, { backgroundColor: colors.gray100 }]}>
+                  <Text style={[styles.reviewCommentLabel, { color: colors.textSecondary }]}>Comentário:</Text>
+                  <Text style={[styles.reviewCommentText, { color: colors.text }]}>{answer.comentario}</Text>
                 </View>
               </View>
             ))}
@@ -247,7 +242,6 @@ export default function SimulationResultScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -257,7 +251,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: colors.textSecondary,
   },
   content: {
     padding: 20,
@@ -277,11 +270,9 @@ const styles = StyleSheet.create({
   },
   resultSubtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
   statsCard: {
-    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 24,
     marginBottom: 24,
@@ -291,7 +282,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray100,
   },
   scoreValue: {
     fontSize: 64,
@@ -299,7 +289,6 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -311,11 +300,9 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
   },
   statLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginTop: 4,
   },
   actions: {
@@ -333,20 +320,12 @@ const styles = StyleSheet.create({
   reviewTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text,
   },
   reviewCard: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-  },
-  reviewCorrect: {
-    borderLeftColor: colors.success,
-  },
-  reviewIncorrect: {
-    borderLeftColor: colors.error,
   },
   reviewCardHeader: {
     flexDirection: 'row',
@@ -356,7 +335,6 @@ const styles = StyleSheet.create({
   reviewIndex: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
   },
   reviewStatus: {
     fontSize: 12,
@@ -364,7 +342,6 @@ const styles = StyleSheet.create({
   },
   reviewQuestion: {
     fontSize: 15,
-    color: colors.text,
     marginBottom: 12,
     lineHeight: 22,
   },
@@ -373,26 +350,22 @@ const styles = StyleSheet.create({
   },
   reviewAnswerLabel: {
     fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
   reviewAnswerValue: {
     fontWeight: '600',
   },
   reviewComment: {
-    backgroundColor: colors.gray50,
     padding: 12,
     borderRadius: 8,
   },
   reviewCommentLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
     marginBottom: 4,
   },
   reviewCommentText: {
     fontSize: 14,
-    color: colors.text,
     lineHeight: 20,
   },
 });

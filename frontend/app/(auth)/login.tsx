@@ -13,12 +13,13 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { authAPI } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { setAuth } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,26 +28,22 @@ export default function LoginScreen() {
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
-    
     if (!email) {
       newErrors.email = 'Email é obrigatório';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Email inválido';
     }
-    
     if (!password) {
       newErrors.password = 'Senha é obrigatória';
     } else if (password.length < 6) {
       newErrors.password = 'Senha deve ter pelo menos 6 caracteres';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLogin = async () => {
     if (!validate()) return;
-    
     setLoading(true);
     try {
       const response = await authAPI.login(email, password);
@@ -61,7 +58,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -74,12 +71,12 @@ export default function LoginScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backText}>← Voltar</Text>
+            <Text style={[styles.backText, { color: colors.primary }]}>← Voltar</Text>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Bem-vindo de volta!</Text>
-            <Text style={styles.subtitle}>Entre na sua conta para continuar</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Bem-vindo de volta!</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Entre na sua conta para continuar</Text>
           </View>
 
           <View style={styles.form}>
@@ -92,7 +89,6 @@ export default function LoginScreen() {
               autoCapitalize="none"
               error={errors.email}
             />
-
             <Input
               label="Senha"
               placeholder="Digite sua senha"
@@ -101,7 +97,6 @@ export default function LoginScreen() {
               secureTextEntry
               error={errors.password}
             />
-
             <Button
               title="Entrar"
               onPress={handleLogin}
@@ -112,9 +107,9 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Não tem uma conta? </Text>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>Não tem uma conta? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-              <Text style={styles.footerLink}>Criar conta</Text>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>Criar conta</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -126,7 +121,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -140,7 +134,6 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: colors.primary,
   },
   header: {
     marginBottom: 40,
@@ -148,12 +141,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   form: {
     flex: 1,
@@ -166,11 +157,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 24,
   },
-  footerText: {
-    color: colors.textSecondary,
-  },
+  footerText: {},
   footerLink: {
-    color: colors.primary,
     fontWeight: '600',
   },
 });

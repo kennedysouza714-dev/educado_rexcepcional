@@ -13,12 +13,13 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { authAPI } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { setAuth } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -34,34 +35,26 @@ export default function RegisterScreen() {
 
   const validate = () => {
     const newErrors: typeof errors = {};
-    
-    if (!name) {
-      newErrors.name = 'Nome é obrigatório';
-    }
-    
+    if (!name) newErrors.name = 'Nome é obrigatório';
     if (!email) {
       newErrors.email = 'Email é obrigatório';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Email inválido';
     }
-    
     if (!password) {
       newErrors.password = 'Senha é obrigatória';
     } else if (password.length < 6) {
       newErrors.password = 'Senha deve ter pelo menos 6 caracteres';
     }
-    
     if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Senhas não conferem';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleRegister = async () => {
     if (!validate()) return;
-    
     setLoading(true);
     try {
       const response = await authAPI.register(name, email, password);
@@ -76,7 +69,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -89,12 +82,12 @@ export default function RegisterScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backText}>← Voltar</Text>
+            <Text style={[styles.backText, { color: colors.primary }]}>← Voltar</Text>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Criar Conta</Text>
-            <Text style={styles.subtitle}>Preencha os dados para começar</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Criar Conta</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Preencha os dados para começar</Text>
           </View>
 
           <View style={styles.form}>
@@ -105,7 +98,6 @@ export default function RegisterScreen() {
               onChangeText={setName}
               error={errors.name}
             />
-
             <Input
               label="Email"
               placeholder="seu@email.com"
@@ -115,7 +107,6 @@ export default function RegisterScreen() {
               autoCapitalize="none"
               error={errors.email}
             />
-
             <Input
               label="Senha"
               placeholder="Digite sua senha"
@@ -124,7 +115,6 @@ export default function RegisterScreen() {
               secureTextEntry
               error={errors.password}
             />
-
             <Input
               label="Confirmar Senha"
               placeholder="Confirme sua senha"
@@ -133,7 +123,6 @@ export default function RegisterScreen() {
               secureTextEntry
               error={errors.confirmPassword}
             />
-
             <Button
               title="Criar Conta"
               onPress={handleRegister}
@@ -144,9 +133,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Já tem uma conta? </Text>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>Já tem uma conta? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-              <Text style={styles.footerLink}>Entrar</Text>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>Entrar</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -158,7 +147,6 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -172,7 +160,6 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: colors.primary,
   },
   header: {
     marginBottom: 32,
@@ -180,12 +167,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   form: {
     flex: 1,
@@ -198,11 +183,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 24,
   },
-  footerText: {
-    color: colors.textSecondary,
-  },
+  footerText: {},
   footerLink: {
-    color: colors.primary,
     fontWeight: '600',
   },
 });

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { Button } from '../../src/components/Button';
 import { ImagePlaceholder, detectImageType } from '../../src/components/ImagePlaceholder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,10 +33,11 @@ interface Answer {
   selected_option: string;
 }
 
-const SIMULATION_TIME = 40 * 60; // 40 minutes in seconds
+const SIMULATION_TIME = 40 * 60;
 
 export default function SimulationQuestionScreen() {
   const router = useRouter();
+  const colors = useColors();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -47,27 +48,21 @@ export default function SimulationQuestionScreen() {
 
   useEffect(() => {
     loadSimulationData();
-    
-    // Handle back button
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       handleQuit();
       return true;
     });
-    
     return () => backHandler.remove();
   }, []);
 
-  // Timer
   useEffect(() => {
     if (timeLeft <= 0) {
       handleTimeUp();
       return;
     }
-    
     const timer = setInterval(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
-    
     return () => clearInterval(timer);
   }, [timeLeft]);
 
@@ -77,16 +72,9 @@ export default function SimulationQuestionScreen() {
       const answersJson = await AsyncStorage.getItem('simulation_answers');
       const indexStr = await AsyncStorage.getItem('simulation_current_index');
       const startTimeStr = await AsyncStorage.getItem('simulation_start_time');
-      
-      if (questionsJson) {
-        setQuestions(JSON.parse(questionsJson));
-      }
-      if (answersJson) {
-        setAnswers(JSON.parse(answersJson));
-      }
-      if (indexStr) {
-        setCurrentIndex(parseInt(indexStr, 10));
-      }
+      if (questionsJson) setQuestions(JSON.parse(questionsJson));
+      if (answersJson) setAnswers(JSON.parse(answersJson));
+      if (indexStr) setCurrentIndex(parseInt(indexStr, 10));
       if (startTimeStr) {
         const start = parseInt(startTimeStr, 10);
         setStartTime(start);
@@ -124,37 +112,30 @@ export default function SimulationQuestionScreen() {
 
   const handleConfirm = async () => {
     if (!selectedOption) return;
-    
     const newAnswer: Answer = {
       question_id: questions[currentIndex].id,
       selected_option: selectedOption,
     };
-    
     const newAnswers = [...answers];
-    // Check if already answered
     const existingIndex = newAnswers.findIndex(a => a.question_id === newAnswer.question_id);
     if (existingIndex >= 0) {
       newAnswers[existingIndex] = newAnswer;
     } else {
       newAnswers.push(newAnswer);
     }
-    
     setAnswers(newAnswers);
     await AsyncStorage.setItem('simulation_answers', JSON.stringify(newAnswers));
-    
     setShowFeedback(true);
   };
 
   const handleNext = async () => {
     setShowFeedback(false);
     setSelectedOption(null);
-    
     if (currentIndex < questions.length - 1) {
       const newIndex = currentIndex + 1;
       setCurrentIndex(newIndex);
       await AsyncStorage.setItem('simulation_current_index', newIndex.toString());
     } else {
-      // Last question - finish simulation
       finishSimulation();
     }
   };
@@ -175,47 +156,47 @@ export default function SimulationQuestionScreen() {
 
   if (!currentQuestion) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <Text>Carregando...</Text>
+          <Text style={{ color: colors.text }}>Carregando...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const isTimeWarning = timeLeft < 300; // Less than 5 minutes
+  const isTimeWarning = timeLeft < 300;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleQuit}>
-          <Text style={styles.quitButton}>✕</Text>
+          <Text style={[styles.quitButton, { color: colors.gray500 }]}>✕</Text>
         </TouchableOpacity>
-        <View style={styles.progress}>
-          <Text style={styles.progressText}>
+        <View style={[styles.progress, { backgroundColor: colors.gray100 }]}>
+          <Text style={[styles.progressText, { color: colors.text }]}>
             {currentIndex + 1}/{questions.length}
           </Text>
         </View>
-        <View style={[styles.timer, isTimeWarning && styles.timerWarning]}>
-          <Text style={[styles.timerText, isTimeWarning && styles.timerTextWarning]}>
+        <View style={[styles.timer, { backgroundColor: isTimeWarning ? colors.error : colors.primary }]}>
+          <Text style={styles.timerText}>
             ⏱ {formatTime(timeLeft)}
           </Text>
         </View>
       </View>
 
-      <View style={styles.progressBar}>
+      <View style={[styles.progressBar, { backgroundColor: colors.gray200 }]}>
         <View 
           style={[
             styles.progressFill, 
-            { width: `${((currentIndex + 1) / questions.length) * 100}%` }
+            { width: `${((currentIndex + 1) / questions.length) * 100}%`, backgroundColor: colors.primary }
           ]} 
         />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.questionCard}>
-          <Text style={styles.moduleTag}>Módulo {currentQuestion.modulo}</Text>
-          <Text style={styles.questionText}>{currentQuestion.questao}</Text>
+        <View style={[styles.questionCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.moduleTag, { color: colors.primary }]}>Módulo {currentQuestion.modulo}</Text>
+          <Text style={[styles.questionText, { color: colors.text }]}>{currentQuestion.questao}</Text>
           {(() => {
             const imageType = detectImageType(currentQuestion.questao);
             return imageType ? <ImagePlaceholder type={imageType} size="medium" /> : null;
@@ -225,32 +206,35 @@ export default function SimulationQuestionScreen() {
         <View style={styles.options}>
           {(['A', 'B', 'C', 'D'] as const).map((option) => {
             const isSelected = selectedOption === option;
-            
             return (
               <TouchableOpacity
                 key={option}
                 style={[
                   styles.optionButton,
-                  isSelected && styles.optionSelected,
-                  showFeedback && isSelected && styles.optionAnswered,
+                  { backgroundColor: colors.card },
+                  isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '10' },
+                  showFeedback && isSelected && { borderColor: colors.primaryLight },
                 ]}
                 onPress={() => handleSelectOption(option)}
                 disabled={showFeedback}
               >
                 <View style={[
                   styles.optionLabel,
-                  isSelected && styles.optionLabelSelected,
+                  { backgroundColor: colors.gray100 },
+                  isSelected && { backgroundColor: colors.primary },
                 ]}>
                   <Text style={[
                     styles.optionLabelText,
-                    isSelected && styles.optionLabelTextSelected,
+                    { color: colors.text },
+                    isSelected && { color: '#FFFFFF' },
                   ]}>
                     {option}
                   </Text>
                 </View>
                 <Text style={[
                   styles.optionText,
-                  isSelected && styles.optionTextSelected,
+                  { color: colors.text },
+                  isSelected && { fontWeight: '500' },
                 ]}>
                   {currentQuestion.alternativas[option]}
                 </Text>
@@ -260,7 +244,7 @@ export default function SimulationQuestionScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.gray200 }]}>
         {!showFeedback ? (
           <Button
             title="Confirmar Resposta"
@@ -283,7 +267,6 @@ export default function SimulationQuestionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -298,10 +281,8 @@ const styles = StyleSheet.create({
   },
   quitButton: {
     fontSize: 24,
-    color: colors.gray500,
   },
   progress: {
-    backgroundColor: colors.gray100,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -309,32 +290,22 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
   },
   timer: {
-    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  timerWarning: {
-    backgroundColor: colors.error,
-  },
   timerText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.white,
-  },
-  timerTextWarning: {
-    color: colors.white,
+    color: '#FFFFFF',
   },
   progressBar: {
     height: 4,
-    backgroundColor: colors.gray200,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
@@ -343,20 +314,17 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   questionCard: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
   },
   moduleTag: {
     fontSize: 12,
-    color: colors.primary,
     fontWeight: '600',
     marginBottom: 12,
   },
   questionText: {
     fontSize: 18,
-    color: colors.text,
     lineHeight: 26,
   },
   options: {
@@ -365,51 +333,29 @@ const styles = StyleSheet.create({
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
     borderRadius: 12,
     padding: 16,
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  optionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
-  optionAnswered: {
-    borderColor: colors.primaryLight,
-  },
   optionLabel: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  optionLabelSelected: {
-    backgroundColor: colors.primary,
-  },
   optionLabelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
-  },
-  optionLabelTextSelected: {
-    color: colors.white,
   },
   optionText: {
     flex: 1,
     fontSize: 15,
-    color: colors.text,
-  },
-  optionTextSelected: {
-    fontWeight: '500',
   },
   footer: {
     padding: 20,
-    backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
   },
 });

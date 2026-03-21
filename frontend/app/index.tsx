@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
+import { useColors } from '../src/hooks/useColors';
 import { Button } from '../src/components/Button';
-import { colors } from '../src/theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
@@ -21,7 +22,7 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.primary }]}>
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.logoContainer}>
@@ -69,7 +70,6 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -96,12 +96,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 18,
-    color: colors.gray200,
+    color: '#E5E7EB',
   },
   features: {
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 16,
-    color: colors.white,
+    color: '#FFFFFF',
   },
   buttons: {
     gap: 12,

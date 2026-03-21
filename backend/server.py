@@ -260,6 +260,7 @@ async def submit_simulation(
         answers_review.append({
             "question_id": answer.question_id,
             "questao": question["questao"],
+            "modulo": question.get("modulo", ""),
             "selected_option": answer.selected_option,
             "correct_answer": question["resposta"],
             "is_correct": is_correct,
@@ -375,6 +376,86 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
         "total_questions_answered": total * 30,
         "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0
     }
+
+# ==================== Missed Questions Routes ====================
+@api_router.get("/missed-questions")
+async def get_missed_questions(current_user: dict = Depends(get_current_user)):
+    """Get all questions the user has answered incorrectly in simulations"""
+    simulations = await simulations_collection.find(
+        {"user_id": current_user["_id"]}
+    ).sort("created_at", -1).to_list(None)
+    
+    if not simulations:
+        return {"questions": [], "total_missed": 0}
+    
+    # Collect all missed question IDs (unique)
+    missed_ids = set()
+    correct_ids = set()
+    
+    for sim in simulations:
+        for answer in sim.get("answers_review", []):
+            qid = answer.get("question_id")
+            if answer.get("is_correct"):
+                correct_ids.add(qid)
+            else:
+                missed_ids.add(qid)
+    
+    # Only include questions that were missed and never answered correctly after
+    still_missed = missed_ids - correct_ids
+    
+    if not still_missed:
+        return {"questions": [], "total_missed": 0}
+    
+    # Fetch the full question data
+    questions_cursor = questions_collection.find({"_id": {"$in": list(still_missed)}})
+    questions = await questions_cursor.to_list(None)
+    
+    result = []
+    for q in questions:
+        result.append({
+            "id": q["_id"],
+            "modulo": q["modulo"],
+            "numero": q.get("numero", ""),
+            "questao": q["questao"],
+            "alternativas": q["alternativas"],
+        })
+    
+    return {"questions": result, "total_missed": len(result)}
+
+@api_router.get("/stats/by-module")
+async def get_stats_by_module(current_user: dict = Depends(get_current_user)):
+    """Get user statistics grouped by module"""
+    simulations = await simulations_collection.find(
+        {"user_id": current_user["_id"]}
+    ).to_list(None)
+    
+    module_stats = {}
+    for mod in ["1", "2", "3", "4"]:
+        module_stats[mod] = {"total": 0, "correct": 0, "incorrect": 0}
+    
+    for sim in simulations:
+        for answer in sim.get("answers_review", []):
+            modulo = answer.get("modulo", "")
+            if not modulo:
+                # Try to find module from question
+                q = await questions_collection.find_one({"_id": answer.get("question_id")})
+                if q:
+                    modulo = q.get("modulo", "")
+            if modulo in module_stats:
+                module_stats[modulo]["total"] += 1
+                if answer.get("is_correct"):
+                    module_stats[modulo]["correct"] += 1
+                else:
+                    module_stats[modulo]["incorrect"] += 1
+    
+    result = {}
+    for mod, stats in module_stats.items():
+        result[mod] = {
+            **stats,
+            "accuracy": round((stats["correct"] / stats["total"]) * 100, 1) if stats["total"] > 0 else 0
+        }
+    
+    return result
 
 # ==================== Admin Routes (for seeding) ====================
 @api_router.get("/questions/count")

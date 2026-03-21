@@ -12,23 +12,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColors } from '../../src/hooks/useColors';
 import { Button } from '../../src/components/Button';
 import { useAuthStore } from '../../src/store/authStore';
-import { historyAPI } from '../../src/services/api';
+import { historyAPI, missedAPI } from '../../src/services/api';
+
+const moduleNames: Record<string, string> = {
+  '1': 'Placas',
+  '2': 'Escolhas',
+  '3': 'Segurança',
+  '4': 'Preservar',
+};
 
 export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<any>(null);
+  const [moduleStats, setModuleStats] = useState<any>(null);
+  const [missedCount, setMissedCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadStats();
+    loadData();
   }, []);
 
-  const loadStats = async () => {
+  const loadData = async () => {
     try {
-      const data = await historyAPI.getStats();
-      setStats(data);
+      const [statsData, missedData, moduleData] = await Promise.all([
+        historyAPI.getStats(),
+        missedAPI.getMissedQuestions().catch(() => ({ total_missed: 0 })),
+        missedAPI.getStatsByModule().catch(() => null),
+      ]);
+      setStats(statsData);
+      setMissedCount(missedData.total_missed || 0);
+      setModuleStats(moduleData);
     } catch (error) {
       console.error('Error loading stats:', error);
     } finally {
@@ -48,6 +63,7 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* Simulation Card */}
         <View style={[styles.simulationCard, { backgroundColor: colors.primary }]}>
           <Text style={styles.cardTitle}>🚗 Simulado DETRAN</Text>
           <Text style={styles.cardDescription}>
@@ -63,12 +79,38 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={[styles.quickAction, { backgroundColor: colors.error + '15' }]}
+            onPress={() => router.push('/review')}
+          >
+            <Text style={styles.quickActionEmoji}>❌</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.error }]}>Revisar Erros</Text>
+            <Text style={[styles.quickActionCount, { color: colors.textSecondary }]}>
+              {missedCount} questão{missedCount !== 1 ? 'ões' : ''}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.quickAction, { backgroundColor: colors.primary + '15' }]}
+            onPress={() => router.push('/(tabs)/modules')}
+          >
+            <Text style={styles.quickActionEmoji}>📚</Text>
+            <Text style={[styles.quickActionTitle, { color: colors.primary }]}>Estudar</Text>
+            <Text style={[styles.quickActionCount, { color: colors.textSecondary }]}>
+              1153 questões
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Stats Section */}
         <View style={styles.statsSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Seu Desempenho</Text>
           
           {loading ? (
             <ActivityIndicator color={colors.primary} />
-          ) : stats ? (
+          ) : stats && stats.total_simulations > 0 ? (
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, { backgroundColor: colors.card }]}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
@@ -96,28 +138,51 @@ export default function HomeScreen() {
               </View>
             </View>
           ) : (
-            <Text style={[styles.noStats, { color: colors.textSecondary }]}>
-              Faça seu primeiro simulado!
-            </Text>
+            <View style={[styles.emptyStats, { backgroundColor: colors.card }]}>
+              <Text style={[styles.noStats, { color: colors.textSecondary }]}>
+                Faça seu primeiro simulado! 🚀
+              </Text>
+            </View>
           )}
         </View>
 
-        <View style={styles.modulesSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Estudar por Módulo</Text>
-          <TouchableOpacity
-            style={[styles.moduleButton, { backgroundColor: colors.card }]}
-            onPress={() => router.push('/(tabs)/modules')}
-          >
-            <Text style={styles.moduleEmoji}>📚</Text>
-            <View style={styles.moduleInfo}>
-              <Text style={[styles.moduleTitle, { color: colors.text }]}>4 Módulos Disponíveis</Text>
-              <Text style={[styles.moduleSubtitle, { color: colors.textSecondary }]}>
-                1153 questões para estudar
-              </Text>
+        {/* Module Stats */}
+        {moduleStats && Object.values(moduleStats).some((m: any) => m.total > 0) && (
+          <View style={styles.moduleStatsSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Desempenho por Módulo
+            </Text>
+            <View style={styles.moduleStatsGrid}>
+              {['1', '2', '3', '4'].map((mod) => {
+                const modStat = moduleStats[mod] || { total: 0, correct: 0, accuracy: 0 };
+                if (modStat.total === 0) return null;
+                const barColor = modStat.accuracy >= 70 ? colors.success 
+                  : modStat.accuracy >= 50 ? colors.warning : colors.error;
+                return (
+                  <View key={mod} style={[styles.moduleStatCard, { backgroundColor: colors.card }]}>
+                    <View style={styles.moduleStatHeader}>
+                      <Text style={[styles.moduleStatName, { color: colors.text }]}>
+                        M{mod}
+                      </Text>
+                      <Text style={[styles.moduleStatPct, { color: barColor }]}>
+                        {modStat.accuracy}%
+                      </Text>
+                    </View>
+                    <View style={[styles.moduleStatBar, { backgroundColor: colors.gray200 }]}>
+                      <View style={[
+                        styles.moduleStatBarFill,
+                        { width: `${modStat.accuracy}%`, backgroundColor: barColor }
+                      ]} />
+                    </View>
+                    <Text style={[styles.moduleStatDetail, { color: colors.textSecondary }]}>
+                      {modStat.correct}/{modStat.total} acertos
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
-            <Text style={[styles.moduleArrow, { color: colors.primary }]}>→</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -144,7 +209,7 @@ const styles = StyleSheet.create({
   simulationCard: {
     borderRadius: 20,
     padding: 24,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   cardTitle: {
     fontSize: 22,
@@ -157,6 +222,29 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     marginBottom: 20,
     lineHeight: 22,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  quickAction: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickActionEmoji: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
+  quickActionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  quickActionCount: {
+    fontSize: 12,
   },
   statsSection: {
     marginBottom: 24,
@@ -186,34 +274,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+  emptyStats: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
   noStats: {
     textAlign: 'center',
-    padding: 20,
+    fontSize: 15,
   },
-  modulesSection: {
+  moduleStatsSection: {
     marginBottom: 24,
   },
-  moduleButton: {
+  moduleStatsGrid: {
+    gap: 10,
+  },
+  moduleStatCard: {
+    borderRadius: 12,
+    padding: 14,
+  },
+  moduleStatHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 16,
-    padding: 16,
+    marginBottom: 8,
   },
-  moduleEmoji: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  moduleInfo: {
-    flex: 1,
-  },
-  moduleTitle: {
-    fontSize: 16,
+  moduleStatName: {
+    fontSize: 14,
     fontWeight: '600',
   },
-  moduleSubtitle: {
-    fontSize: 14,
+  moduleStatPct: {
+    fontSize: 16,
+    fontWeight: '700',
   },
-  moduleArrow: {
-    fontSize: 20,
+  moduleStatBar: {
+    height: 6,
+    borderRadius: 3,
+    marginBottom: 6,
+  },
+  moduleStatBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  moduleStatDetail: {
+    fontSize: 12,
   },
 });

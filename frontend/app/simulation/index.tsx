@@ -7,26 +7,24 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { Button } from '../../src/components/Button';
 import { simulationAPI } from '../../src/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SimulationStartScreen() {
   const router = useRouter();
+  const colors = useColors();
   const [loading, setLoading] = useState(false);
 
   const handleStartSimulation = async () => {
     setLoading(true);
     try {
       const questions = await simulationAPI.startNew();
-      
-      // Store questions and start time
       await AsyncStorage.setItem('simulation_questions', JSON.stringify(questions));
       await AsyncStorage.setItem('simulation_start_time', Date.now().toString());
       await AsyncStorage.setItem('simulation_answers', JSON.stringify([]));
       await AsyncStorage.setItem('simulation_current_index', '0');
-      
       router.push('/simulation/question');
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Erro ao iniciar simulado';
@@ -37,7 +35,7 @@ export default function SimulationStartScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <View style={styles.header}>
           <Button
@@ -51,42 +49,42 @@ export default function SimulationStartScreen() {
 
         <View style={styles.info}>
           <Text style={styles.emoji}>🚗</Text>
-          <Text style={styles.title}>Simulado DETRAN</Text>
-          <Text style={styles.subtitle}>Teste seus conhecimentos</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Simulado DETRAN</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Teste seus conhecimentos</Text>
         </View>
 
-        <View style={styles.rules}>
-          <Text style={styles.rulesTitle}>Regras do Simulado</Text>
+        <View style={[styles.rules, { backgroundColor: colors.card }]}>
+          <Text style={[styles.rulesTitle, { color: colors.text }]}>Regras do Simulado</Text>
           
           <View style={styles.ruleItem}>
             <Text style={styles.ruleIcon}>📋</Text>
             <View style={styles.ruleText}>
-              <Text style={styles.ruleTitle}>30 Questões</Text>
-              <Text style={styles.ruleDesc}>Questões aleatórias de todos os módulos</Text>
+              <Text style={[styles.ruleTitle2, { color: colors.text }]}>30 Questões</Text>
+              <Text style={[styles.ruleDesc, { color: colors.textSecondary }]}>Questões aleatórias de todos os módulos</Text>
             </View>
           </View>
           
           <View style={styles.ruleItem}>
             <Text style={styles.ruleIcon}>⏱</Text>
             <View style={styles.ruleText}>
-              <Text style={styles.ruleTitle}>40 Minutos</Text>
-              <Text style={styles.ruleDesc}>Tempo máximo para conclusão</Text>
+              <Text style={[styles.ruleTitle2, { color: colors.text }]}>40 Minutos</Text>
+              <Text style={[styles.ruleDesc, { color: colors.textSecondary }]}>Tempo máximo para conclusão</Text>
             </View>
           </View>
           
           <View style={styles.ruleItem}>
             <Text style={styles.ruleIcon}>✅</Text>
             <View style={styles.ruleText}>
-              <Text style={styles.ruleTitle}>70% para Aprovar</Text>
-              <Text style={styles.ruleDesc}>Mínimo de 21 acertos</Text>
+              <Text style={[styles.ruleTitle2, { color: colors.text }]}>70% para Aprovar</Text>
+              <Text style={[styles.ruleDesc, { color: colors.textSecondary }]}>Mínimo de 21 acertos</Text>
             </View>
           </View>
           
           <View style={styles.ruleItem}>
             <Text style={styles.ruleIcon}>💡</Text>
             <View style={styles.ruleText}>
-              <Text style={styles.ruleTitle}>Feedback Imediato</Text>
-              <Text style={styles.ruleDesc}>Veja se acertou após cada resposta</Text>
+              <Text style={[styles.ruleTitle2, { color: colors.text }]}>Feedback Imediato</Text>
+              <Text style={[styles.ruleDesc, { color: colors.textSecondary }]}>Veja se acertou após cada resposta</Text>
             </View>
           </View>
         </View>
@@ -107,7 +105,6 @@ export default function SimulationStartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -131,15 +128,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   rules: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 20,
     marginBottom: 32,
@@ -147,7 +141,6 @@ const styles = StyleSheet.create({
   rulesTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 20,
   },
   ruleItem: {
@@ -162,15 +155,13 @@ const styles = StyleSheet.create({
   ruleText: {
     flex: 1,
   },
-  ruleTitle: {
+  ruleTitle2: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 2,
   },
   ruleDesc: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   actions: {
     marginTop: 'auto',

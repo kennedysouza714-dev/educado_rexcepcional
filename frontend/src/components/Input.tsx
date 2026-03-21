@@ -7,7 +7,7 @@ import {
   TextInputProps,
   ViewStyle,
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { useColors } from '../hooks/useColors';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -21,18 +21,24 @@ export const Input: React.FC<InputProps> = ({
   containerStyle,
   ...props
 }) => {
+  const colors = useColors();
+  
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.text }]}>{label}</Text>}
       <TextInput
         style={[
           styles.input,
-          error ? styles.inputError : null,
+          { 
+            backgroundColor: colors.card,
+            borderColor: error ? colors.error : colors.gray200,
+            color: colors.text,
+          },
         ]}
         placeholderTextColor={colors.gray400}
         {...props}
       />
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={[styles.error, { color: colors.error }]}>{error}</Text>}
     </View>
   );
 };
@@ -44,25 +50,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.text,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.gray200,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: colors.text,
-  },
-  inputError: {
-    borderColor: colors.error,
   },
   error: {
     fontSize: 12,
-    color: colors.error,
     marginTop: 4,
   },
 });

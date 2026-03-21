@@ -74,6 +74,19 @@ export const bookmarksAPI = {
   },
 };
 
+// Missed Questions API
+export const missedAPI = {
+  getMissedQuestions: async () => {
+    const response = await api.get('/missed-questions');
+    return response.data;
+  },
+  
+  getStatsByModule: async () => {
+    const response = await api.get('/stats/by-module');
+    return response.data;
+  },
+};
+
 // Simulation API
 export const simulationAPI = {
   startNew: async () => {
