@@ -14,26 +14,21 @@ import { useColors } from '../../src/hooks/useColors';
 import { Button } from '../../src/components/Button';
 import { ImagePlaceholder, detectImageType } from '../../src/components/ImagePlaceholder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
 
 interface Question {
   id: string;
   modulo: string;
   numero: string;
   questao: string;
-  alternativas: {
-    A: string;
-    B: string;
-    C: string;
-    D: string;
-  };
+  alternativas: { A: string; B: string; C: string; D: string };
 }
-
 interface Answer {
   question_id: string;
   selected_option: string;
 }
 
-const SIMULATION_TIME = 40 * 60;
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function SimulationQuestionScreen() {
   const router = useRouter();
@@ -43,8 +38,19 @@ export default function SimulationQuestionScreen() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(SIMULATION_TIME);
-  const [startTime, setStartTime] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(40 * 60);
+  const [timeLimit, setTimeLimit] = useState(40 * 60);
+
+  // Animations
+  const cardScale = useSharedValue(1);
+  const confirmScale = useSharedValue(1);
+
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
+  const confirmAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: confirmScale.value }],
+  }));
 
   useEffect(() => {
     loadSimulationData();
@@ -60,26 +66,27 @@ export default function SimulationQuestionScreen() {
       handleTimeUp();
       return;
     }
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [timeLeft]);
 
   const loadSimulationData = async () => {
     try {
-      const questionsJson = await AsyncStorage.getItem('simulation_questions');
-      const answersJson = await AsyncStorage.getItem('simulation_answers');
-      const indexStr = await AsyncStorage.getItem('simulation_current_index');
-      const startTimeStr = await AsyncStorage.getItem('simulation_start_time');
+      const [questionsJson, answersJson, indexStr, startTimeStr, timeLimitStr] = await Promise.all([
+        AsyncStorage.getItem('simulation_questions'),
+        AsyncStorage.getItem('simulation_answers'),
+        AsyncStorage.getItem('simulation_current_index'),
+        AsyncStorage.getItem('simulation_start_time'),
+        AsyncStorage.getItem('simulation_time_limit'),
+      ]);
       if (questionsJson) setQuestions(JSON.parse(questionsJson));
       if (answersJson) setAnswers(JSON.parse(answersJson));
       if (indexStr) setCurrentIndex(parseInt(indexStr, 10));
+      const limit = timeLimitStr ? parseInt(timeLimitStr, 10) : 40 * 60;
+      setTimeLimit(limit);
       if (startTimeStr) {
-        const start = parseInt(startTimeStr, 10);
-        setStartTime(start);
-        const elapsed = Math.floor((Date.now() - start) / 1000);
-        setTimeLeft(Math.max(0, SIMULATION_TIME - elapsed));
+        const elapsed = Math.floor((Date.now() - parseInt(startTimeStr, 10)) / 1000);
+        setTimeLeft(Math.max(0, limit - elapsed));
       }
     } catch (error) {
       console.error('Error loading simulation data:', error);
@@ -87,48 +94,38 @@ export default function SimulationQuestionScreen() {
   };
 
   const handleTimeUp = () => {
-    Alert.alert(
-      'Tempo Esgotado!',
-      'O tempo do simulado acabou. Suas respostas serão enviadas.',
-      [{ text: 'OK', onPress: finishSimulation }]
-    );
+    Alert.alert('Tempo Esgotado!', 'Suas respostas serão enviadas.', [{ text: 'OK', onPress: finishSimulation }]);
   };
 
   const handleQuit = () => {
-    Alert.alert(
-      'Sair do Simulado',
-      'Tem certeza que deseja sair? Seu progresso será perdido.',
-      [
-        { text: 'Continuar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: () => router.replace('/(tabs)/home') },
-      ]
-    );
+    Alert.alert('Sair do Simulado', 'Tem certeza? Progresso será perdido.', [
+      { text: 'Continuar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: () => router.replace('/(tabs)/home') },
+    ]);
   };
 
   const handleSelectOption = (option: string) => {
     if (showFeedback) return;
     setSelectedOption(option);
+    // Bounce animation
+    confirmScale.value = withSequence(withSpring(1.05), withSpring(1));
   };
 
   const handleConfirm = async () => {
     if (!selectedOption) return;
-    const newAnswer: Answer = {
-      question_id: questions[currentIndex].id,
-      selected_option: selectedOption,
-    };
+    const newAnswer: Answer = { question_id: questions[currentIndex].id, selected_option: selectedOption };
     const newAnswers = [...answers];
     const existingIndex = newAnswers.findIndex(a => a.question_id === newAnswer.question_id);
-    if (existingIndex >= 0) {
-      newAnswers[existingIndex] = newAnswer;
-    } else {
-      newAnswers.push(newAnswer);
-    }
+    if (existingIndex >= 0) newAnswers[existingIndex] = newAnswer;
+    else newAnswers.push(newAnswer);
     setAnswers(newAnswers);
     await AsyncStorage.setItem('simulation_answers', JSON.stringify(newAnswers));
     setShowFeedback(true);
   };
 
   const handleNext = async () => {
+    // Animate card transition
+    cardScale.value = withSequence(withTiming(0.95, { duration: 100 }), withSpring(1));
     setShowFeedback(false);
     setSelectedOption(null);
     if (currentIndex < questions.length - 1) {
@@ -141,7 +138,7 @@ export default function SimulationQuestionScreen() {
   };
 
   const finishSimulation = async () => {
-    const timeTaken = SIMULATION_TIME - timeLeft;
+    const timeTaken = timeLimit - timeLeft;
     await AsyncStorage.setItem('simulation_time_taken', timeTaken.toString());
     router.replace('/simulation/result');
   };
@@ -153,7 +150,6 @@ export default function SimulationQuestionScreen() {
   };
 
   const currentQuestion = questions[currentIndex];
-
   if (!currentQuestion) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -178,30 +174,26 @@ export default function SimulationQuestionScreen() {
           </Text>
         </View>
         <View style={[styles.timer, { backgroundColor: isTimeWarning ? colors.error : colors.primary }]}>
-          <Text style={styles.timerText}>
-            ⏱ {formatTime(timeLeft)}
-          </Text>
+          <Text style={styles.timerText}>⏱ {formatTime(timeLeft)}</Text>
         </View>
       </View>
 
       <View style={[styles.progressBar, { backgroundColor: colors.gray200 }]}>
-        <View 
-          style={[
-            styles.progressFill, 
-            { width: `${((currentIndex + 1) / questions.length) * 100}%`, backgroundColor: colors.primary }
-          ]} 
-        />
+        <Animated.View style={[
+          styles.progressFill,
+          { width: `${((currentIndex + 1) / questions.length) * 100}%`, backgroundColor: colors.primary }
+        ]} />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <View style={[styles.questionCard, { backgroundColor: colors.card }]}>
+        <Animated.View style={[styles.questionCard, { backgroundColor: colors.card }, cardAnimStyle]}>
           <Text style={[styles.moduleTag, { color: colors.primary }]}>Módulo {currentQuestion.modulo}</Text>
           <Text style={[styles.questionText, { color: colors.text }]}>{currentQuestion.questao}</Text>
           {(() => {
             const imageType = detectImageType(currentQuestion.questao);
             return imageType ? <ImagePlaceholder type={imageType} size="medium" /> : null;
           })()}
-        </View>
+        </Animated.View>
 
         <View style={styles.options}>
           {(['A', 'B', 'C', 'D'] as const).map((option) => {
@@ -213,10 +205,10 @@ export default function SimulationQuestionScreen() {
                   styles.optionButton,
                   { backgroundColor: colors.card },
                   isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '10' },
-                  showFeedback && isSelected && { borderColor: colors.primaryLight },
                 ]}
                 onPress={() => handleSelectOption(option)}
                 disabled={showFeedback}
+                activeOpacity={0.7}
               >
                 <View style={[
                   styles.optionLabel,
@@ -227,15 +219,9 @@ export default function SimulationQuestionScreen() {
                     styles.optionLabelText,
                     { color: colors.text },
                     isSelected && { color: '#FFFFFF' },
-                  ]}>
-                    {option}
-                  </Text>
+                  ]}>{option}</Text>
                 </View>
-                <Text style={[
-                  styles.optionText,
-                  { color: colors.text },
-                  isSelected && { fontWeight: '500' },
-                ]}>
+                <Text style={[styles.optionText, { color: colors.text }]}>
                   {currentQuestion.alternativas[option]}
                 </Text>
               </TouchableOpacity>
@@ -244,7 +230,7 @@ export default function SimulationQuestionScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.gray200 }]}>
+      <Animated.View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.gray200 }, confirmAnimStyle]}>
         {!showFeedback ? (
           <Button
             title="Confirmar Resposta"
@@ -254,108 +240,39 @@ export default function SimulationQuestionScreen() {
           />
         ) : (
           <Button
-            title={currentIndex < questions.length - 1 ? "Próxima Questão" : "Ver Resultado"}
+            title={currentIndex < questions.length - 1 ? 'Próxima Questão →' : 'Ver Resultado 🏆'}
             onPress={handleNext}
             size="large"
           />
         )}
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  quitButton: {
-    fontSize: 24,
-  },
-  progress: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  progressText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  timer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  timerText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  progressBar: {
-    height: 4,
-  },
-  progressFill: {
-    height: '100%',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-  },
-  questionCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  moduleTag: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  questionText: {
-    fontSize: 18,
-    lineHeight: 26,
-  },
-  options: {
-    gap: 12,
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  quitButton: { fontSize: 24 },
+  progress: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  progressText: { fontSize: 14, fontWeight: '600' },
+  timer: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  timerText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  progressBar: { height: 4 },
+  progressFill: { height: '100%' },
+  content: { flex: 1 },
+  contentContainer: { padding: 20 },
+  questionCard: { borderRadius: 16, padding: 20, marginBottom: 20 },
+  moduleTag: { fontSize: 12, fontWeight: '600', marginBottom: 12 },
+  questionText: { fontSize: 18, lineHeight: 26 },
+  options: { gap: 12 },
   optionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    flexDirection: 'row', alignItems: 'center', borderRadius: 12,
+    padding: 16, borderWidth: 2, borderColor: 'transparent',
   },
-  optionLabel: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  optionLabelText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 15,
-  },
-  footer: {
-    padding: 20,
-    borderTopWidth: 1,
-  },
+  optionLabel: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  optionLabelText: { fontSize: 14, fontWeight: '600' },
+  optionText: { flex: 1, fontSize: 15 },
+  footer: { padding: 20, borderTopWidth: 1 },
 });

@@ -89,8 +89,11 @@ export const missedAPI = {
 
 // Simulation API
 export const simulationAPI = {
-  startNew: async () => {
-    const response = await api.get('/simulation/new');
+  startNew: async (modules?: string[], count?: number) => {
+    const params: any = {};
+    if (modules && modules.length > 0) params.modules = modules.join(',');
+    if (count) params.count = count;
+    const response = await api.get('/simulation/new', { params });
     return response.data;
   },
   

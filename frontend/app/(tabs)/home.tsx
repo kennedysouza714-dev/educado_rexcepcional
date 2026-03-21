@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const [moduleStats, setModuleStats] = useState<any>(null);
   const [missedCount, setMissedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -51,9 +53,19 @@ export default function HomeScreen() {
     }
   };
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData().then(() => setRefreshing(false));
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         <View style={styles.header}>
           <Text style={[styles.greeting, { color: colors.text }]}>
             Olá, {user?.name?.split(' ')[0]}! 👋

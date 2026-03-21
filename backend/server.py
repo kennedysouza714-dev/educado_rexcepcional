@@ -211,16 +211,29 @@ async def get_module_question_with_answer(modulo: str, question_id: str):
 
 # ==================== Simulation Routes ====================
 @api_router.get("/simulation/new", response_model=List[QuestionResponse])
-async def start_new_simulation(current_user: dict = Depends(get_current_user)):
-    """Start a new simulation with 30 random questions"""
-    # Get all question IDs by module
-    all_questions = await questions_collection.find({}).to_list(None)
+async def start_new_simulation(
+    current_user: dict = Depends(get_current_user),
+    modules: str = None,
+    count: int = 30
+):
+    """Start a new simulation with random questions.
+    modules: comma-separated module numbers (e.g., '1,2,3')
+    count: number of questions (default 30)
+    """
+    count = min(max(count, 10), 50)  # Between 10 and 50
     
-    if len(all_questions) < 30:
-        raise HTTPException(status_code=500, detail="Banco de questões insuficiente")
+    query = {}
+    if modules:
+        module_list = [m.strip() for m in modules.split(',') if m.strip() in ['1','2','3','4']]
+        if module_list:
+            query["modulo"] = {"$in": module_list}
     
-    # Select 30 random questions
-    selected_questions = random.sample(all_questions, 30)
+    all_questions = await questions_collection.find(query).to_list(None)
+    
+    if len(all_questions) < count:
+        raise HTTPException(status_code=400, detail=f"Não há questões suficientes. Disponíveis: {len(all_questions)}")
+    
+    selected_questions = random.sample(all_questions, count)
     
     return [
         QuestionResponse(
@@ -241,8 +254,9 @@ async def submit_simulation(
     current_user: dict = Depends(get_current_user)
 ):
     """Submit simulation answers and get results"""
-    if len(submission.answers) != 30:
-        raise HTTPException(status_code=400, detail="O simulado deve ter exatamente 30 questões")
+    total_questions = len(submission.answers)
+    if total_questions < 10 or total_questions > 50:
+        raise HTTPException(status_code=400, detail="O simulado deve ter entre 10 e 50 questões")
     
     # Calculate score
     correct_count = 0
@@ -268,7 +282,7 @@ async def submit_simulation(
             "alternativas": question["alternativas"]
         })
     
-    score = (correct_count / 30) * 100
+    score = (correct_count / total_questions) * 100
     passed = score >= 70  # 70% to pass
     
     # Save simulation result
@@ -278,7 +292,7 @@ async def submit_simulation(
         "user_id": current_user["_id"],
         "score": score,
         "correct_answers": correct_count,
-        "total_questions": 30,
+        "total_questions": total_questions,
         "passed": passed,
         "time_taken_seconds": submission.time_taken_seconds,
         "answers_review": answers_review,
@@ -373,7 +387,7 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
         "passed_simulations": passed,
         "average_score": round(sum(scores) / total, 2),
         "best_score": max(scores),
-        "total_questions_answered": total * 30,
+        "total_questions_answered": sum(s.get("total_questions", 30) for s in simulations),
         "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0
     }
 
