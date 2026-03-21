@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { historyAPI } from '../../src/services/api';
 
 interface HistoryItem {
@@ -20,6 +20,7 @@ interface HistoryItem {
 }
 
 export default function HistoryScreen() {
+  const colors = useColors();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,19 +64,24 @@ export default function HistoryScreen() {
   };
 
   const renderItem = ({ item, index }: { item: HistoryItem; index: number }) => (
-    <View style={styles.historyCard}>
+    <View style={[styles.historyCard, { backgroundColor: colors.card }]}>
       <View style={styles.cardHeader}>
-        <View style={styles.cardIndex}>
-          <Text style={styles.indexText}>#{history.length - index}</Text>
+        <View style={[styles.cardIndex, { backgroundColor: colors.gray100 }]}>
+          <Text style={[styles.indexText, { color: colors.textSecondary }]}>
+            #{history.length - index}
+          </Text>
         </View>
         <View style={[
           styles.statusBadge,
-          item.passed ? styles.passedBadge : styles.failedBadge
+          item.passed 
+            ? { backgroundColor: colors.success + '20' }
+            : { backgroundColor: colors.error + '20' }
         ]}>
-          <Text style={[
-            styles.statusText,
-            { color: item.passed ? colors.success : colors.error }
-          ]}>
+          <Text style={{ 
+            fontSize: 12, 
+            fontWeight: '600', 
+            color: item.passed ? colors.success : colors.error 
+          }}>
             {item.passed ? 'Aprovado' : 'Reprovado'}
           </Text>
         </View>
@@ -89,14 +95,18 @@ export default function HistoryScreen() {
           ]}>
             {item.score.toFixed(0)}%
           </Text>
-          <Text style={styles.scoreLabel}>
+          <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>
             {Math.round(item.score * 30 / 100)}/30 acertos
           </Text>
         </View>
         
         <View style={styles.detailsContainer}>
-          <Text style={styles.detailText}>⏱ {formatTime(item.time_taken_seconds)}</Text>
-          <Text style={styles.detailText}>📅 {formatDate(item.created_at)}</Text>
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+            ⏱ {formatTime(item.time_taken_seconds)}
+          </Text>
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+            📅 {formatDate(item.created_at)}
+          </Text>
         </View>
       </View>
     </View>
@@ -104,7 +114,7 @@ export default function HistoryScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -113,17 +123,19 @@ export default function HistoryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Histórico</Text>
-        <Text style={styles.subtitle}>Seus simulados anteriores</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Histórico</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Seus simulados anteriores
+        </Text>
       </View>
 
       {history.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📊</Text>
-          <Text style={styles.emptyTitle}>Nenhum simulado ainda</Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Nenhum simulado ainda</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             Faça seu primeiro simulado para ver seu histórico aqui!
           </Text>
         </View>
@@ -149,7 +161,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
@@ -158,12 +169,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -175,7 +184,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   historyCard: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -187,7 +195,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardIndex: {
-    backgroundColor: colors.gray100,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -195,22 +202,11 @@ const styles = StyleSheet.create({
   indexText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-  },
-  passedBadge: {
-    backgroundColor: colors.success + '20',
-  },
-  failedBadge: {
-    backgroundColor: colors.error + '20',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   cardBody: {
     flexDirection: 'row',
@@ -226,14 +222,12 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
   },
   detailsContainer: {
     alignItems: 'flex-end',
   },
   detailText: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
   emptyContainer: {
@@ -249,12 +243,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

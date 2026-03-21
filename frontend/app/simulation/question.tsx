@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../src/theme/colors';
 import { Button } from '../../src/components/Button';
+import { ImagePlaceholder, detectImageType } from '../../src/components/ImagePlaceholder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Question {
@@ -215,6 +216,10 @@ export default function SimulationQuestionScreen() {
         <View style={styles.questionCard}>
           <Text style={styles.moduleTag}>Módulo {currentQuestion.modulo}</Text>
           <Text style={styles.questionText}>{currentQuestion.questao}</Text>
+          {(() => {
+            const imageType = detectImageType(currentQuestion.questao);
+            return imageType ? <ImagePlaceholder type={imageType} size="medium" /> : null;
+          })()}
         </View>
 
         <View style={styles.options}>

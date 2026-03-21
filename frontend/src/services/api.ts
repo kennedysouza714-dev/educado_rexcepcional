@@ -48,7 +48,7 @@ export const modulesAPI = {
     return response.data;
   },
   
-  getModuleQuestions: async (modulo: string, limit: number = 10, skip: number = 0) => {
+  getModuleQuestions: async (modulo: string, limit: number = 100, skip: number = 0) => {
     const response = await api.get(`/modules/${modulo}/questions`, {
       params: { limit, skip }
     });
@@ -57,6 +57,19 @@ export const modulesAPI = {
   
   getQuestionWithAnswer: async (modulo: string, questionId: string) => {
     const response = await api.get(`/modules/${modulo}/question/${questionId}`);
+    return response.data;
+  },
+};
+
+// Bookmarks API
+export const bookmarksAPI = {
+  getBookmarks: async () => {
+    const response = await api.get('/bookmarks');
+    return response.data;
+  },
+  
+  toggleBookmark: async (questionId: string) => {
+    const response = await api.post(`/bookmarks/${questionId}`);
     return response.data;
   },
 };

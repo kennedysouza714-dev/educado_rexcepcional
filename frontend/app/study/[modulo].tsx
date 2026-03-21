@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  FlatList,
+  Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../src/theme/colors';
 import { Button } from '../../src/components/Button';
-import { modulesAPI } from '../../src/services/api';
+import { ImagePlaceholder, detectImageType } from '../../src/components/ImagePlaceholder';
+import { modulesAPI, bookmarksAPI } from '../../src/services/api';
 
 interface Question {
   id: string;
@@ -33,6 +37,15 @@ const moduleNames: Record<string, string> = {
   '4': 'Cuidar, Agir e Preservar',
 };
 
+const moduleTotals: Record<string, number> = {
+  '1': 371,
+  '2': 171,
+  '3': 575,
+  '4': 36,
+};
+
+const BATCH_SIZE = 50;
+
 export default function StudyModuleScreen() {
   const router = useRouter();
   const { modulo } = useLocalSearchParams<{ modulo: string }>();
@@ -44,23 +57,61 @@ export default function StudyModuleScreen() {
   const [correctAnswer, setCorrectAnswer] = useState<string>('');
   const [comment, setComment] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
+  const [showJumpModal, setShowJumpModal] = useState(false);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [filterMode, setFilterMode] = useState<'all' | 'bookmarked'>('all');
+  const [totalLoaded, setTotalLoaded] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    loadQuestions();
+    loadInitialData();
   }, [modulo]);
 
-  const loadQuestions = async () => {
+  const loadInitialData = async () => {
     if (!modulo) return;
+    setLoading(true);
     try {
-      const data = await modulesAPI.getModuleQuestions(modulo, 100, 0);
-      setQuestions(data);
+      const [questionsData, bookmarksData] = await Promise.all([
+        modulesAPI.getModuleQuestions(modulo, BATCH_SIZE, 0),
+        bookmarksAPI.getBookmarks().catch(() => ({ bookmarks: [] })),
+      ]);
+      setQuestions(questionsData);
+      setTotalLoaded(questionsData.length);
+      setBookmarks(bookmarksData.bookmarks || []);
     } catch (error) {
       console.error('Error loading questions:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const loadMoreQuestions = async () => {
+    if (!modulo || loadingMore) return;
+    const total = moduleTotals[modulo] || 0;
+    if (totalLoaded >= total) return;
+    
+    setLoadingMore(true);
+    try {
+      const moreQuestions = await modulesAPI.getModuleQuestions(modulo, BATCH_SIZE, totalLoaded);
+      if (moreQuestions.length > 0) {
+        setQuestions(prev => [...prev, ...moreQuestions]);
+        setTotalLoaded(prev => prev + moreQuestions.length);
+      }
+    } catch (error) {
+      console.error('Error loading more questions:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Auto-load more when approaching end
+  useEffect(() => {
+    if (currentIndex >= questions.length - 5 && questions.length < (moduleTotals[modulo || '1'] || 0)) {
+      loadMoreQuestions();
+    }
+  }, [currentIndex]);
 
   const handleSelectOption = (option: string) => {
     if (showAnswer) return;
@@ -86,47 +137,96 @@ export default function StudyModuleScreen() {
     }
   };
 
+  const goToQuestion = (index: number) => {
+    setCurrentIndex(index);
+    setSelectedOption(null);
+    setShowAnswer(false);
+    setCorrectAnswer('');
+    setComment('');
+    setShowJumpModal(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setSelectedOption(null);
-      setShowAnswer(false);
-      setCorrectAnswer('');
-      setComment('');
+      goToQuestion(currentIndex + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setSelectedOption(null);
-      setShowAnswer(false);
-      setCorrectAnswer('');
-      setComment('');
+      goToQuestion(currentIndex - 1);
     }
   };
+
+  const toggleBookmark = async () => {
+    const questionId = questions[currentIndex]?.id;
+    if (!questionId) return;
+    
+    try {
+      const result = await bookmarksAPI.toggleBookmark(questionId);
+      setBookmarks(result.bookmarks);
+    } catch (error) {
+      // Optimistic update - toggle locally on error
+      setBookmarks(prev => 
+        prev.includes(questionId) 
+          ? prev.filter(id => id !== questionId)
+          : [...prev, questionId]
+      );
+    }
+  };
+
+  const isBookmarked = (questionId: string) => bookmarks.includes(questionId);
+
+  const filteredQuestions = filterMode === 'bookmarked' 
+    ? questions.filter(q => isBookmarked(q.id))
+    : questions;
+
+  const effectiveIndex = filterMode === 'bookmarked' 
+    ? Math.min(currentIndex, filteredQuestions.length - 1) 
+    : currentIndex;
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Carregando questões...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const currentQuestion = questions[currentIndex];
+  const currentQuestion = filteredQuestions[effectiveIndex];
+  const totalModuleQuestions = moduleTotals[modulo || '1'] || 0;
 
   if (!currentQuestion) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text>Nenhuma questão disponível</Text>
+          <Text style={styles.emptyEmoji}>{filterMode === 'bookmarked' ? '🔖' : '📭'}</Text>
+          <Text style={styles.emptyTitle}>
+            {filterMode === 'bookmarked' 
+              ? 'Nenhuma questão salva' 
+              : 'Nenhuma questão disponível'}
+          </Text>
+          <Text style={styles.emptyText}>
+            {filterMode === 'bookmarked' 
+              ? 'Marque questões com ★ para revisar depois' 
+              : 'Tente novamente mais tarde'}
+          </Text>
+          {filterMode === 'bookmarked' && (
+            <Button
+              title="Ver Todas"
+              onPress={() => { setFilterMode('all'); setCurrentIndex(0); }}
+              style={{ marginTop: 16 }}
+            />
+          )}
           <Button
             title="Voltar"
             onPress={() => router.back()}
-            style={{ marginTop: 20 }}
+            variant="outline"
+            style={{ marginTop: 12 }}
           />
         </View>
       </SafeAreaView>
@@ -135,28 +235,67 @@ export default function StudyModuleScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Voltar</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Módulo {modulo}</Text>
-        <Text style={styles.progress}>{currentIndex + 1}/{questions.length}</Text>
+        <TouchableOpacity onPress={() => setShowJumpModal(true)} style={styles.progressBtn}>
+          <Text style={styles.headerTitle}>
+            {effectiveIndex + 1}/{filteredQuestions.length}
+          </Text>
+          <Text style={styles.jumpHint}>▼</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={toggleBookmark} style={styles.bookmarkBtn}>
+          <Text style={styles.bookmarkIcon}>
+            {isBookmarked(currentQuestion.id) ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
+      {/* Filter Tabs */}
+      <View style={styles.filterTabs}>
+        <TouchableOpacity
+          style={[styles.filterTab, filterMode === 'all' && styles.filterTabActive]}
+          onPress={() => { setFilterMode('all'); setCurrentIndex(0); }}
+        >
+          <Text style={[styles.filterText, filterMode === 'all' && styles.filterTextActive]}>
+            Todas ({questions.length}{totalLoaded < totalModuleQuestions ? '+' : ''})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterTab, filterMode === 'bookmarked' && styles.filterTabActive]}
+          onPress={() => { setFilterMode('bookmarked'); setCurrentIndex(0); }}
+        >
+          <Text style={[styles.filterText, filterMode === 'bookmarked' && styles.filterTextActive]}>
+            ★ Salvas ({questions.filter(q => isBookmarked(q.id)).length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Progress Bar */}
       <View style={styles.progressBar}>
         <View 
           style={[
             styles.progressFill, 
-            { width: `${((currentIndex + 1) / questions.length) * 100}%` }
+            { width: `${((effectiveIndex + 1) / filteredQuestions.length) * 100}%` }
           ]} 
         />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.moduleName}>{moduleNames[modulo || '1']}</Text>
+      {/* Question Content */}
+      <ScrollView ref={scrollRef} style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <Text style={styles.moduleName}>
+          Módulo {modulo} — {moduleNames[modulo || '1']}
+        </Text>
         
         <View style={styles.questionCard}>
+          <Text style={styles.questionNumber}>Questão {currentQuestion.numero}</Text>
           <Text style={styles.questionText}>{currentQuestion.questao}</Text>
+          {(() => {
+            const imageType = detectImageType(currentQuestion.questao);
+            return imageType ? <ImagePlaceholder type={imageType} size="medium" /> : null;
+          })()}
         </View>
 
         <View style={styles.options}>
@@ -199,44 +338,118 @@ export default function StudyModuleScreen() {
         </View>
 
         {showAnswer && (
-          <View style={styles.commentCard}>
-            <Text style={styles.commentTitle}>💡 Comentário</Text>
+          <View style={[
+            styles.commentCard,
+            selectedOption === correctAnswer ? styles.commentCorrect : styles.commentWrong,
+          ]}>
+            <Text style={styles.commentTitle}>
+              {selectedOption === correctAnswer ? '✅ Correto!' : '❌ Incorreto'}
+            </Text>
             <Text style={styles.commentText}>{comment}</Text>
+          </View>
+        )}
+
+        {loadingMore && (
+          <View style={styles.loadingMoreContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loadingMoreText}>Carregando mais questões...</Text>
           </View>
         )}
       </ScrollView>
 
+      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.navigationButtons}>
-          <Button
-            title="Anterior"
+          <TouchableOpacity
+            style={[styles.navBtn, effectiveIndex === 0 && styles.navBtnDisabled]}
             onPress={handlePrevious}
-            variant="outline"
-            disabled={currentIndex === 0}
-            style={styles.navButton}
-          />
-          <Button
-            title="Próxima"
+            disabled={effectiveIndex === 0}
+          >
+            <Text style={[styles.navBtnText, effectiveIndex === 0 && styles.navBtnTextDisabled]}>
+              ← Anterior
+            </Text>
+          </TouchableOpacity>
+          
+          {!showAnswer ? (
+            <TouchableOpacity
+              style={[styles.checkBtn, !selectedOption && styles.checkBtnDisabled]}
+              onPress={handleCheckAnswer}
+              disabled={!selectedOption || loadingAnswer}
+            >
+              {loadingAnswer ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.checkBtnText}>Verificar</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.nextBtn}
+              onPress={handleNext}
+              disabled={effectiveIndex === filteredQuestions.length - 1}
+            >
+              <Text style={styles.nextBtnText}>Próxima →</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity
+            style={[styles.navBtn, effectiveIndex >= filteredQuestions.length - 1 && styles.navBtnDisabled]}
             onPress={handleNext}
-            variant="outline"
-            disabled={currentIndex === questions.length - 1}
-            style={styles.navButton}
-          />
+            disabled={effectiveIndex >= filteredQuestions.length - 1}
+          >
+            <Text style={[styles.navBtnText, effectiveIndex >= filteredQuestions.length - 1 && styles.navBtnTextDisabled]}>
+              Próxima →
+            </Text>
+          </TouchableOpacity>
         </View>
-        
-        {!showAnswer && (
-          <Button
-            title="Verificar Resposta"
-            onPress={handleCheckAnswer}
-            disabled={!selectedOption}
-            loading={loadingAnswer}
-            size="large"
-          />
-        )}
       </View>
+
+      {/* Jump-to-Question Modal */}
+      <Modal visible={showJumpModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Ir para Questão</Text>
+              <TouchableOpacity onPress={() => setShowJumpModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={filteredQuestions}
+              numColumns={5}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.gridContainer}
+              renderItem={({ item, index }) => {
+                const isCurrent = index === effectiveIndex;
+                const isSaved = isBookmarked(item.id);
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.gridItem,
+                      isCurrent && styles.gridItemCurrent,
+                      isSaved && styles.gridItemSaved,
+                    ]}
+                    onPress={() => goToQuestion(index)}
+                  >
+                    <Text style={[
+                      styles.gridItemText,
+                      isCurrent && styles.gridItemTextCurrent,
+                    ]}>
+                      {index + 1}
+                    </Text>
+                    {isSaved && <Text style={styles.gridItemStar}>★</Text>}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -247,26 +460,91 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  emptyEmoji: {
+    fontSize: 60,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backBtn: {
+    padding: 8,
   },
   backButton: {
-    fontSize: 16,
+    fontSize: 22,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  progressBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray100,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
-  progress: {
-    fontSize: 14,
+  jumpHint: {
+    fontSize: 10,
     color: colors.textSecondary,
+    marginLeft: 6,
+  },
+  bookmarkBtn: {
+    padding: 8,
+  },
+  bookmarkIcon: {
+    fontSize: 26,
+    color: colors.secondary,
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.gray100,
+    alignItems: 'center',
+  },
+  filterTabActive: {
+    backgroundColor: colors.primary,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  filterTextActive: {
+    color: colors.white,
   },
   progressBar: {
     height: 4,
@@ -281,9 +559,10 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
+    paddingBottom: 40,
   },
   moduleName: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.primary,
     fontWeight: '600',
     marginBottom: 12,
@@ -294,20 +573,27 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
   },
+  questionNumber: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
   questionText: {
-    fontSize: 18,
+    fontSize: 17,
     color: colors.text,
     lineHeight: 26,
+    marginBottom: 4,
   },
   options: {
-    gap: 12,
+    gap: 10,
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     borderWidth: 2,
     borderColor: 'transparent',
   },
@@ -355,15 +641,24 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   commentCard: {
-    backgroundColor: colors.primaryLight + '20',
     borderRadius: 12,
     padding: 16,
-    marginTop: 20,
+    marginTop: 16,
+  },
+  commentCorrect: {
+    backgroundColor: colors.success + '15',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+  },
+  commentWrong: {
+    backgroundColor: colors.error + '15',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
   },
   commentTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 8,
   },
   commentText: {
@@ -371,18 +666,137 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 22,
   },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   footer: {
-    padding: 20,
+    padding: 16,
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.gray200,
-    gap: 12,
   },
   navigationButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+    alignItems: 'center',
   },
-  navButton: {
+  navBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.gray300,
+  },
+  navBtnDisabled: {
+    borderColor: colors.gray200,
+    opacity: 0.4,
+  },
+  navBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  navBtnTextDisabled: {
+    color: colors.gray400,
+  },
+  checkBtn: {
     flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  checkBtnDisabled: {
+    backgroundColor: colors.gray300,
+  },
+  checkBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  nextBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+  },
+  nextBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray200,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalClose: {
+    fontSize: 22,
+    color: colors.gray500,
+    padding: 4,
+  },
+  gridContainer: {
+    padding: 16,
+  },
+  gridItem: {
+    width: (width - 80) / 5,
+    height: 48,
+    margin: 4,
+    borderRadius: 10,
+    backgroundColor: colors.gray100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridItemCurrent: {
+    backgroundColor: colors.primary,
+  },
+  gridItemSaved: {
+    borderWidth: 2,
+    borderColor: colors.secondary,
+  },
+  gridItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  gridItemTextCurrent: {
+    color: colors.white,
+  },
+  gridItemStar: {
+    position: 'absolute',
+    top: 2,
+    right: 4,
+    fontSize: 10,
+    color: colors.secondary,
   },
 });

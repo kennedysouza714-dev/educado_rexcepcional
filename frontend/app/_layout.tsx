@@ -1,19 +1,23 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
+import { useThemeStore } from '../src/store/themeStore';
+import { useColors } from '../src/hooks/useColors';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { colors } from '../src/theme/colors';
 
 export default function RootLayout() {
   const { loadAuth, isLoading } = useAuthStore();
+  const { loadTheme } = useThemeStore();
+  const colors = useColors();
 
   useEffect(() => {
     loadAuth();
+    loadTheme();
   }, []);
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -43,6 +47,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
 });

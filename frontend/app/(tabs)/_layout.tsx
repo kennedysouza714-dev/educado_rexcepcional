@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 
 interface TabIconProps {
   name: string;
@@ -20,11 +20,16 @@ function TabIcon({ name, emoji, color, focused }: TabIconProps) {
 }
 
 export default function TabLayout() {
+  const colors = useColors();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { 
+          backgroundColor: colors.card, 
+          borderTopColor: colors.gray200 
+        }],
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.gray400,
       }}
@@ -75,8 +80,6 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.white,
-    borderTopColor: colors.gray200,
     borderTopWidth: 1,
     height: Platform.OS === 'ios' ? 85 : 70,
     paddingTop: 8,

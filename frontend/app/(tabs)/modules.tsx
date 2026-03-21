@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { modulesAPI } from '../../src/services/api';
 
 interface Module {
@@ -18,12 +18,6 @@ interface Module {
   difficulty: string;
   total_questions: number;
 }
-
-const difficultyColors: Record<string, string> = {
-  'fácil': colors.success,
-  'intermediário': colors.warning,
-  'difícil': colors.error,
-};
 
 const moduleEmojis: Record<string, string> = {
   '1': '🚦',
@@ -34,8 +28,15 @@ const moduleEmojis: Record<string, string> = {
 
 export default function ModulesScreen() {
   const router = useRouter();
+  const colors = useColors();
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const difficultyColors: Record<string, string> = {
+    'fácil': colors.success,
+    'intermediário': colors.warning,
+    'difícil': colors.error,
+  };
 
   useEffect(() => {
     loadModules();
@@ -53,10 +54,12 @@ export default function ModulesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Módulos de Estudo</Text>
-        <Text style={styles.subtitle}>Escolha um módulo para estudar</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Módulos de Estudo</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Escolha um módulo para estudar
+        </Text>
       </View>
 
       {loading ? (
@@ -68,30 +71,32 @@ export default function ModulesScreen() {
           {modules.map((module) => (
             <TouchableOpacity
               key={module.modulo}
-              style={styles.moduleCard}
+              style={[styles.moduleCard, { backgroundColor: colors.card }]}
               onPress={() => router.push(`/study/${module.modulo}`)}
             >
               <View style={styles.moduleHeader}>
                 <Text style={styles.moduleEmoji}>{moduleEmojis[module.modulo]}</Text>
                 <View style={styles.moduleInfo}>
-                  <Text style={styles.moduleName}>Módulo {module.modulo}</Text>
-                  <Text style={styles.moduleTitle}>{module.name}</Text>
+                  <Text style={[styles.moduleName, { color: colors.textSecondary }]}>
+                    Módulo {module.modulo}
+                  </Text>
+                  <Text style={[styles.moduleTitle, { color: colors.text }]}>{module.name}</Text>
                 </View>
               </View>
               
               <View style={styles.moduleFooter}>
                 <View style={[
                   styles.difficultyBadge,
-                  { backgroundColor: difficultyColors[module.difficulty] + '20' }
+                  { backgroundColor: (difficultyColors[module.difficulty] || colors.gray400) + '20' }
                 ]}>
                   <Text style={[
                     styles.difficultyText,
-                    { color: difficultyColors[module.difficulty] }
+                    { color: difficultyColors[module.difficulty] || colors.gray400 }
                   ]}>
                     {module.difficulty}
                   </Text>
                 </View>
-                <Text style={styles.questionsCount}>
+                <Text style={[styles.questionsCount, { color: colors.textSecondary }]}>
                   {module.total_questions} questões
                 </Text>
               </View>
@@ -106,7 +111,6 @@ export default function ModulesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
@@ -115,12 +119,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -132,7 +134,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   moduleCard: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
@@ -151,13 +152,11 @@ const styles = StyleSheet.create({
   },
   moduleName: {
     fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 2,
   },
   moduleTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
   },
   moduleFooter: {
     flexDirection: 'row',
@@ -176,6 +175,5 @@ const styles = StyleSheet.create({
   },
   questionsCount: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
 });

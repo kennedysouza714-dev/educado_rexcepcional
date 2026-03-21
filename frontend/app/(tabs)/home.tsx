@@ -9,13 +9,14 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
 import { Button } from '../../src/components/Button';
 import { useAuthStore } from '../../src/store/authStore';
 import { historyAPI } from '../../src/services/api';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -36,14 +37,18 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}! 👋</Text>
-          <Text style={styles.subtitle}>Pronto para estudar hoje?</Text>
+          <Text style={[styles.greeting, { color: colors.text }]}>
+            Olá, {user?.name?.split(' ')[0]}! 👋
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Pronto para estudar hoje?
+          </Text>
         </View>
 
-        <View style={styles.simulationCard}>
+        <View style={[styles.simulationCard, { backgroundColor: colors.primary }]}>
           <Text style={styles.cardTitle}>🚗 Simulado DETRAN</Text>
           <Text style={styles.cardDescription}>
             30 questões em 40 minutos{"\n"}
@@ -53,53 +58,64 @@ export default function HomeScreen() {
             title="Iniciar Simulado"
             onPress={() => router.push('/simulation')}
             size="large"
-            style={styles.startButton}
+            style={{ backgroundColor: '#FFFFFF' }}
+            textStyle={{ color: colors.primary }}
           />
         </View>
 
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Seu Desempenho</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Seu Desempenho</Text>
           
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : stats ? (
             <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.total_simulations}</Text>
-                <Text style={styles.statLabel}>Simulados</Text>
+              <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {stats.total_simulations}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Simulados</Text>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.passed_simulations}</Text>
-                <Text style={styles.statLabel}>Aprovações</Text>
+              <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {stats.passed_simulations}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Aprovações</Text>
               </View>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: colors.card }]}>
                 <Text style={[styles.statValue, { color: colors.success }]}>
                   {stats.pass_rate}%
                 </Text>
-                <Text style={styles.statLabel}>Taxa</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Taxa</Text>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.best_score?.toFixed(0) || 0}%</Text>
-                <Text style={styles.statLabel}>Melhor</Text>
+              <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {stats.best_score?.toFixed(0) || 0}%
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Melhor</Text>
               </View>
             </View>
           ) : (
-            <Text style={styles.noStats}>Faça seu primeiro simulado!</Text>
+            <Text style={[styles.noStats, { color: colors.textSecondary }]}>
+              Faça seu primeiro simulado!
+            </Text>
           )}
         </View>
 
         <View style={styles.modulesSection}>
-          <Text style={styles.sectionTitle}>Estudar por Módulo</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Estudar por Módulo</Text>
           <TouchableOpacity
-            style={styles.moduleButton}
+            style={[styles.moduleButton, { backgroundColor: colors.card }]}
             onPress={() => router.push('/(tabs)/modules')}
           >
             <Text style={styles.moduleEmoji}>📚</Text>
             <View style={styles.moduleInfo}>
-              <Text style={styles.moduleTitle}>4 Módulos Disponíveis</Text>
-              <Text style={styles.moduleSubtitle}>45+ questões para estudar</Text>
+              <Text style={[styles.moduleTitle, { color: colors.text }]}>4 Módulos Disponíveis</Text>
+              <Text style={[styles.moduleSubtitle, { color: colors.textSecondary }]}>
+                1153 questões para estudar
+              </Text>
             </View>
-            <Text style={styles.moduleArrow}>→</Text>
+            <Text style={[styles.moduleArrow, { color: colors.primary }]}>→</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -110,7 +126,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 20,
@@ -121,15 +136,12 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   simulationCard: {
-    backgroundColor: colors.primary,
     borderRadius: 20,
     padding: 24,
     marginBottom: 24,
@@ -137,17 +149,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   cardDescription: {
     fontSize: 14,
-    color: colors.gray200,
+    color: '#E5E7EB',
     marginBottom: 20,
     lineHeight: 22,
-  },
-  startButton: {
-    backgroundColor: colors.white,
   },
   statsSection: {
     marginBottom: 24,
@@ -155,7 +164,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 16,
   },
   statsGrid: {
@@ -166,7 +174,6 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -174,16 +181,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginTop: 4,
   },
   noStats: {
     textAlign: 'center',
-    color: colors.textSecondary,
     padding: 20,
   },
   modulesSection: {
@@ -192,7 +196,6 @@ const styles = StyleSheet.create({
   moduleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
   },
@@ -206,14 +209,11 @@ const styles = StyleSheet.create({
   moduleTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
   },
   moduleSubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   moduleArrow: {
     fontSize: 20,
-    color: colors.primary,
   },
 });

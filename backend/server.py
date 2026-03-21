@@ -389,6 +389,33 @@ async def get_questions_count():
     }
     return {"total": total, "by_module": by_module}
 
+# ==================== Bookmarks Routes ====================
+@api_router.get("/bookmarks")
+async def get_bookmarks(current_user: dict = Depends(get_current_user)):
+    """Get user's bookmarked question IDs"""
+    user = await users_collection.find_one({"_id": current_user["_id"]})
+    return {"bookmarks": user.get("bookmarks", [])}
+
+@api_router.post("/bookmarks/{question_id}")
+async def toggle_bookmark(question_id: str, current_user: dict = Depends(get_current_user)):
+    """Toggle bookmark on a question"""
+    user = await users_collection.find_one({"_id": current_user["_id"]})
+    bookmarks = user.get("bookmarks", [])
+    
+    if question_id in bookmarks:
+        bookmarks.remove(question_id)
+        action = "removed"
+    else:
+        bookmarks.append(question_id)
+        action = "added"
+    
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"bookmarks": bookmarks}}
+    )
+    
+    return {"action": action, "bookmarks": bookmarks}
+
 # Include the router in the main app
 app.include_router(api_router)
 

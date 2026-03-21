@@ -6,16 +6,20 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/theme/colors';
+import { useColors } from '../../src/hooks/useColors';
+import { useThemeStore } from '../../src/store/themeStore';
 import { Button } from '../../src/components/Button';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { user, logout } = useAuthStore();
+  const { mode, toggleTheme } = useThemeStore();
 
   const handleLogout = () => {
     Alert.alert(
@@ -36,59 +40,64 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
             <Text style={styles.avatarText}>
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </Text>
           </View>
-          <Text style={styles.name}>{user?.name}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>{user?.name}</Text>
+          <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configurações</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Configurações</Text>
           
-          <View style={styles.menuItem}>
+          <View style={[styles.menuItem, { borderBottomColor: colors.gray100 }]}>
             <Text style={styles.menuIcon}>🔔</Text>
-            <Text style={styles.menuText}>Notificações</Text>
-            <Text style={styles.menuArrow}>›</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Notificações</Text>
+            <Text style={[styles.menuArrow, { color: colors.gray400 }]}>›</Text>
           </View>
           
-          <View style={styles.menuItem}>
-            <Text style={styles.menuIcon}>🌙</Text>
-            <Text style={styles.menuText}>Tema Escuro</Text>
-            <Text style={styles.menuArrow}>›</Text>
+          <View style={[styles.menuItem, { borderBottomColor: colors.gray100 }]}>
+            <Text style={styles.menuIcon}>{mode === 'dark' ? '☀️' : '🌙'}</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Tema Escuro</Text>
+            <Switch
+              value={mode === 'dark'}
+              onValueChange={toggleTheme}
+              trackColor={{ false: colors.gray300, true: colors.primary + '80' }}
+              thumbColor={mode === 'dark' ? colors.primary : colors.gray400}
+            />
           </View>
           
-          <View style={styles.menuItem}>
+          <View style={[styles.menuItem, { borderBottomColor: colors.gray100 }]}>
             <Text style={styles.menuIcon}>❓</Text>
-            <Text style={styles.menuText}>Ajuda</Text>
-            <Text style={styles.menuArrow}>›</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Ajuda</Text>
+            <Text style={[styles.menuArrow, { color: colors.gray400 }]}>›</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sobre</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Sobre</Text>
           
-          <View style={styles.menuItem}>
+          <View style={[styles.menuItem, { borderBottomColor: colors.gray100 }]}>
             <Text style={styles.menuIcon}>ℹ️</Text>
-            <Text style={styles.menuText}>Versão do App</Text>
-            <Text style={styles.menuValue}>1.0.0</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Versão do App</Text>
+            <Text style={[styles.menuValue, { color: colors.textSecondary }]}>1.0.0</Text>
           </View>
           
-          <View style={styles.menuItem}>
+          <View style={[styles.menuItem, { borderBottomColor: colors.gray100 }]}>
             <Text style={styles.menuIcon}>📄</Text>
-            <Text style={styles.menuText}>Termos de Uso</Text>
-            <Text style={styles.menuArrow}>›</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Termos de Uso</Text>
+            <Text style={[styles.menuArrow, { color: colors.gray400 }]}>›</Text>
           </View>
           
-          <View style={styles.menuItem}>
+          <View style={[styles.menuItem, { borderBottomColor: colors.gray100 }]}>
             <Text style={styles.menuIcon}>🔒</Text>
-            <Text style={styles.menuText}>Política de Privacidade</Text>
-            <Text style={styles.menuArrow}>›</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Política de Privacidade</Text>
+            <Text style={[styles.menuArrow, { color: colors.gray400 }]}>›</Text>
           </View>
         </View>
 
@@ -108,7 +117,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 20,
@@ -121,7 +129,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -129,20 +136,17 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 4,
   },
   email: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   section: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -150,7 +154,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
     textTransform: 'uppercase',
     marginBottom: 16,
   },
@@ -159,7 +162,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray100,
   },
   menuIcon: {
     fontSize: 20,
@@ -168,15 +170,12 @@ const styles = StyleSheet.create({
   menuText: {
     flex: 1,
     fontSize: 16,
-    color: colors.text,
   },
   menuArrow: {
     fontSize: 20,
-    color: colors.gray400,
   },
   menuValue: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   logoutSection: {
     marginTop: 8,
