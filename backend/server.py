@@ -173,7 +173,10 @@ async def get_module_questions(modulo: str, limit: int = 10, skip: int = 0):
     if modulo not in ["1", "2", "3", "4"]:
         raise HTTPException(status_code=400, detail="Módulo inválido")
     
-    questions = await questions_collection.find({"modulo": modulo}).skip(skip).limit(limit).to_list(limit)
+    questions = await questions_collection.find(
+        {"modulo": modulo},
+        {"_id": 1, "modulo": 1, "numero": 1, "questao": 1, "alternativas": 1, "has_image": 1, "image_placeholder": 1}
+    ).skip(skip).limit(limit).to_list(limit)
     
     return [
         QuestionResponse(
@@ -242,7 +245,7 @@ async def start_new_simulation(
     pipeline.append({"$sample": {"size": count}})
     pipeline.append({"$project": {"_id": 1, "modulo": 1, "numero": 1, "questao": 1, "alternativas": 1, "has_image": 1, "image_placeholder": 1}})
     
-    selected_questions = await questions_collection.aggregate(pipeline).to_list(None)
+    selected_questions = await questions_collection.aggregate(pipeline).to_list(count)
     
     return [
         QuestionResponse(
@@ -376,7 +379,7 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
     simulations = await simulations_collection.find(
         {"user_id": current_user["_id"]},
         {"score": 1, "passed": 1, "total_questions": 1}
-    ).to_list(None)
+    ).to_list(500)
     
     if not simulations:
         return {
@@ -408,7 +411,7 @@ async def get_missed_questions(current_user: dict = Depends(get_current_user)):
     simulations = await simulations_collection.find(
         {"user_id": current_user["_id"]},
         {"answers_review.question_id": 1, "answers_review.is_correct": 1}
-    ).sort("created_at", -1).to_list(None)
+    ).sort("created_at", -1).to_list(500)
     
     if not simulations:
         return {"questions": [], "total_missed": 0}
@@ -436,7 +439,7 @@ async def get_missed_questions(current_user: dict = Depends(get_current_user)):
         {"_id": {"$in": list(still_missed)}},
         {"_id": 1, "modulo": 1, "numero": 1, "questao": 1, "alternativas": 1}
     )
-    questions = await questions_cursor.to_list(None)
+    questions = await questions_cursor.to_list(500)
     
     result = []
     for q in questions:
@@ -456,7 +459,7 @@ async def get_stats_by_module(current_user: dict = Depends(get_current_user)):
     simulations = await simulations_collection.find(
         {"user_id": current_user["_id"]},
         {"answers_review.question_id": 1, "answers_review.modulo": 1, "answers_review.is_correct": 1}
-    ).to_list(None)
+    ).to_list(500)
     
     module_stats = {}
     for mod in ["1", "2", "3", "4"]:
@@ -475,7 +478,7 @@ async def get_stats_by_module(current_user: dict = Depends(get_current_user)):
         questions = await questions_collection.find(
             {"_id": {"$in": list(missing_modulo_ids)}},
             {"_id": 1, "modulo": 1}
-        ).to_list(None)
+        ).to_list(500)
         for q in questions:
             question_modules[q["_id"]] = q.get("modulo", "")
     
