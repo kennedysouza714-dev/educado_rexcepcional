@@ -222,18 +222,27 @@ async def start_new_simulation(
     """
     count = min(max(count, 10), 50)  # Between 10 and 50
     
+    # Use aggregation $sample for efficient random selection
+    pipeline = []
+    if modules:
+        module_list = [m.strip() for m in modules.split(',') if m.strip() in ['1','2','3','4']]
+        if module_list:
+            pipeline.append({"$match": {"modulo": {"$in": module_list}}})
+    
+    # Check available count first
     query = {}
     if modules:
         module_list = [m.strip() for m in modules.split(',') if m.strip() in ['1','2','3','4']]
         if module_list:
             query["modulo"] = {"$in": module_list}
+    available = await questions_collection.count_documents(query)
+    if available < count:
+        raise HTTPException(status_code=400, detail=f"Não há questões suficientes. Disponíveis: {available}")
     
-    all_questions = await questions_collection.find(query).to_list(None)
+    pipeline.append({"$sample": {"size": count}})
+    pipeline.append({"$project": {"_id": 1, "modulo": 1, "numero": 1, "questao": 1, "alternativas": 1, "has_image": 1, "image_placeholder": 1}})
     
-    if len(all_questions) < count:
-        raise HTTPException(status_code=400, detail=f"Não há questões suficientes. Disponíveis: {len(all_questions)}")
-    
-    selected_questions = random.sample(all_questions, count)
+    selected_questions = await questions_collection.aggregate(pipeline).to_list(None)
     
     return [
         QuestionResponse(
@@ -365,7 +374,8 @@ async def get_user_history(
 async def get_user_stats(current_user: dict = Depends(get_current_user)):
     """Get user's statistics"""
     simulations = await simulations_collection.find(
-        {"user_id": current_user["_id"]}
+        {"user_id": current_user["_id"]},
+        {"score": 1, "passed": 1, "total_questions": 1}
     ).to_list(None)
     
     if not simulations:
@@ -396,7 +406,8 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
 async def get_missed_questions(current_user: dict = Depends(get_current_user)):
     """Get all questions the user has answered incorrectly in simulations"""
     simulations = await simulations_collection.find(
-        {"user_id": current_user["_id"]}
+        {"user_id": current_user["_id"]},
+        {"answers_review.question_id": 1, "answers_review.is_correct": 1}
     ).sort("created_at", -1).to_list(None)
     
     if not simulations:
@@ -420,8 +431,11 @@ async def get_missed_questions(current_user: dict = Depends(get_current_user)):
     if not still_missed:
         return {"questions": [], "total_missed": 0}
     
-    # Fetch the full question data
-    questions_cursor = questions_collection.find({"_id": {"$in": list(still_missed)}})
+    # Fetch the full question data with projection
+    questions_cursor = questions_collection.find(
+        {"_id": {"$in": list(still_missed)}},
+        {"_id": 1, "modulo": 1, "numero": 1, "questao": 1, "alternativas": 1}
+    )
     questions = await questions_cursor.to_list(None)
     
     result = []
@@ -440,21 +454,36 @@ async def get_missed_questions(current_user: dict = Depends(get_current_user)):
 async def get_stats_by_module(current_user: dict = Depends(get_current_user)):
     """Get user statistics grouped by module"""
     simulations = await simulations_collection.find(
-        {"user_id": current_user["_id"]}
+        {"user_id": current_user["_id"]},
+        {"answers_review.question_id": 1, "answers_review.modulo": 1, "answers_review.is_correct": 1}
     ).to_list(None)
     
     module_stats = {}
     for mod in ["1", "2", "3", "4"]:
         module_stats[mod] = {"total": 0, "correct": 0, "incorrect": 0}
     
+    # Collect question_ids that are missing modulo for batch lookup
+    missing_modulo_ids = set()
+    for sim in simulations:
+        for answer in sim.get("answers_review", []):
+            if not answer.get("modulo"):
+                missing_modulo_ids.add(answer.get("question_id"))
+    
+    # Batch fetch modules for questions missing modulo
+    question_modules = {}
+    if missing_modulo_ids:
+        questions = await questions_collection.find(
+            {"_id": {"$in": list(missing_modulo_ids)}},
+            {"_id": 1, "modulo": 1}
+        ).to_list(None)
+        for q in questions:
+            question_modules[q["_id"]] = q.get("modulo", "")
+    
     for sim in simulations:
         for answer in sim.get("answers_review", []):
             modulo = answer.get("modulo", "")
             if not modulo:
-                # Try to find module from question
-                q = await questions_collection.find_one({"_id": answer.get("question_id")})
-                if q:
-                    modulo = q.get("modulo", "")
+                modulo = question_modules.get(answer.get("question_id"), "")
             if modulo in module_stats:
                 module_stats[modulo]["total"] += 1
                 if answer.get("is_correct"):
