@@ -392,11 +392,12 @@ function opcoes(lista){
 
 function iniciarChat(){
   opcoes([
-    {label:'💰 Quanto custa?', resp:'custo'},
-    {label:'📅 Como funciona a aula?', resp:'funciona'},
-    {label:'📚 Reforço teórico', resp:'teorico'},
+    {label:'💰 Quem pode se matricular nos cursos especializados?', resp:'Quem pode'}, 
     {label:'🔴 Lives gratuitas', resp:'lives'},
+    {label:'💰 Quanto custa?', resp:'custo'},   
     {label:'📍 Onde fica?', resp:'onde'},
+    {label:'📚 Reforço teórico', resp:'teorico'}, 
+    {label:'📅 Como funciona a aula?', resp:'funciona'}, 
     {label:'📲 Falar no WhatsApp', resp:'whats'}
   ]);
 }
@@ -408,6 +409,10 @@ function responder(chave){
       case 'custo':
         txt = 'O valor varia conforme a categoria e a quantidade de aulas. Me chame no WhatsApp que eu te passo a tabela atualizada! 👇';
         proximas = [{label:'📲 Chamar no WhatsApp', resp:'whats'}];
+        break;
+        case 'Quem pode':
+        txt = 'Produtos Perigosos: B, C, D e E. Cargas Indivisíveis: C. Veículos de Emergência: A, B, C, D ou E. Transporte escolar: D. Transporte Coletivo de Passageiros: D.';
+        proximas = [{label:'✅ Fazer pré-matrícula' , resp:'whats'}];
         break;
       case 'funciona':
         txt = 'Você faz a pré-matrícula aqui no site, eu te ligo/chamo no WhatsApp, a gente agenda as aulas e acompanha todo o processo até a prova do Detran.';
